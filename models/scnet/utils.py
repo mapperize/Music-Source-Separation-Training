@@ -138,3 +138,24 @@ def split_layer(total_channels, num_groups):
     split = [int(np.ceil(total_channels / num_groups)) for _ in range(num_groups)]
     split[num_groups - 1] += total_channels - sum(split)
     return split
+
+class MDConv(nn.Module):
+    def __init__(self, out_chan, n_chunks, stride, bias=False):
+        self.n_chunks = n_chunks
+        self.split_out_chan1 = split_layer(out_chan, n_chunks)
+        
+        self.split_in_channels = split_layer(in_chan, n_chunks)
+        self.kernel_size=kernel_size
+        self.padding = (kernel_size - 1) // 2
+        self.layers = nn.ModuleList()
+        for idx in range(self.n_chunks):
+            kernel_size = 2 * idx + 3
+            convolution = nn.Conv2d(self.split_out_chan1[idx], kernal_size=kernel_size, stride=stride, bias=bias)
+            self.layers.append(convolution(self.split_out_chan1[idx], kernel_size=kernel_size, stride=stride, bias=False))
+        self.grouplayers = nn.ModuleList()
+        self.split_out_chan2 = split_layer(out_chan, n_chunks)
+
+    def forward(self, x):
+        split = torch.split(x, self.split_out_channels, dim=1)
+        out = torch.cat([layer(s) for layer, s in zip(self.layers, split)], dim=1)
+        return out
