@@ -133,3 +133,8 @@ def compute_gcr(subband_shapes: List[List[int]]) -> float:
         [(1 - t[i + 1] / t[i]).mean() for i in range(0, len(t) - 1)]
     ).mean()
     return float(gcr)
+
+def split_layer(total_channels, num_groups):
+    split = [int(np.ceil(total_channels / num_groups)) for _ in range(num_groups)]
+    split[num_groups - 1] += total_channels - sum(split)
+    return split
