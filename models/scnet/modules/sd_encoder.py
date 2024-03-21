@@ -51,88 +51,93 @@ class Downsample(nn.Module):
         """
         return self.conv(x)
 
-class ConformerConvolution(nn.Module):
-    """The convolution module for the Conformer model.
+class ConvolutionModule(nn.Module):
+    """
+    ConvolutionModule class implements a module with a sequence of convolutional layers similar to Conformer.
+
     Args:
-        d_model (int): hidden dimension
-        kernel_size (int): kernel size for depthwise convolution
-        pointwise_activation (str): name of the activation function to be used for the pointwise conv.
-            Note that Conformer uses a special key `glu_` which is treated as the original default from
-            the paper.
+    - input_dim (int): Dimensionality of the input features.
+    - hidden_dim (int): Dimensionality of the hidden features.
+    - kernel_sizes (List[int]): List of kernel sizes for the convolutional layers.
+    - bias (bool, optional): If True, adds a learnable bias to the output. Default is False.
+
+    Shapes:
+    - Input: (B, T, D) where
+        B is batch size,
+        T is sequence length,
+        D is input dimensionality.
+    - Output: (B, T, D) where
+        B is batch size,
+        T is sequence length,
+        D is input dimensionality.
     """
 
     def __init__(
-        self, input_dim, d_model, kernel_size, norm_type='group_norm', conv_context_size=None, pointwise_activation='glu_' # d_model is hidden dimensions
-    ):
-        super(ConformerConvolution, self).__init__()
-        assert (kernel_size - 1) % 2 == 0
-        self.d_model = d_model
-        self.kernel_size = kernel_size
-        self.norm_type = norm_type
-        self.input_dim = input_dim
-
-        if conv_context_size is None:
-            conv_context_size = (kernel_size - 1) // 2
-
-        self.pointwise_activation = pointwise_activation
-        dw_conv_input_dim = d_model
-
-        self.pointwise_conv1 = nn.Conv1d(
-            in_channels=d_model, out_channels=d_model * 2, kernel_size=kernel_size, stride=1, padding=0, bias=True
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        kernel_sizes: List[int],
+        bias: bool = False,
+    ) -> None:
+        """
+        Initializes ConvolutionModule with input dimension, hidden dimension, kernel sizes, and bias.
+        """
+        super().__init__()
+        self.sequential = nn.Sequential(
+            nn.GroupNorm(num_groups=1, num_channels=input_dim),
+            nn.Conv1d(
+                input_dim,
+                2 * hidden_dim,
+                kernel_sizes[0],
+                stride=1,
+                padding=(kernel_sizes[0] - 1) // 2,
+                bias=bias,
+            ),
+            nn.GLU(dim=1),
+            MDConv(
+                hidden_dim,
+                hidden_dim,
+                stride=1,
+                bias=bias,
+            ),
+            nn.GroupNorm(num_groups=1, num_channels=hidden_dim),
+            nn.SiLU(),
+            nn.Conv1d(
+                hidden_dim,
+                input_dim,
+                kernel_sizes[2],
+                stride=1,
+                padding=(kernel_sizes[2] - 1) // 2,
+                bias=bias,
+            ),
         )
 
-        self.depthwise_conv = MDConv(
-            in_channels=dw_conv_input_dim,
-            kernel_size=kernel_size,
-            stride=1,
-            bias=True,
-        )
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Performs forward pass through the ConvolutionModule.
 
-        num_groups = int(norm_type.replace("group_norm", ""))
-        self.batch_norm = nn.GroupNorm(num_groups=num_groups, num_channels=d_model)
+        Args:
+        - x (torch.Tensor): Input tensor of shape (B, T, D).
 
-        self.activation = 'silu'
-        self.pointwise_conv2 = nn.Conv1d(
-            in_channels=dw_conv_input_dim, out_channels=d_model, kernel_size=1, stride=1, padding=0, bias=True
-        )
-
-    def forward(self, B, F, T, C, pad_mask=None, cache=None):
-        nn.GELU(x) # Activate 
-        x = x.reshape((B * F), T, C) # Reshape
-        self.pointwise_conv1() # Cast to fp32 & Convolute
-
-        nn.transpose(1, 2)
-        x = self.pointwise_conv1 # Group Normalize #1
-
-        x = nn.functional.glu(x, dim=1) # GLU Activation
-        self.depthwise_conv # Depthwise Conv1D 
-
+        Returns:
+        - torch.Tensor: Output tensor of shape (B, T, D).
+        """
         x = x.transpose(1, 2)
-        nn.GroupNorm(num_groups=1, num_channels=self.input_dim) # Group Normalize #2
-        
-        nn.SiLU # SiLU Activation
-        self.pointwise_conv2() # Cast back to fp16 and convolute
-
+        x = x + self.sequential(x)
         x = x.transpose(1, 2)
-        if cache is None:
-            return x
-        else:
-            return x, cache
-
-    def reset_parameters_conv(self):
-        pw1_max = pw2_max = self.d_model ** -0.5
-        dw_max = self.kernel_size ** -0.5
-
-        with torch.no_grad():
-            nn.init.uniform_(self.pointwise_conv1.weight, -pw1_max, pw1_max)
-            nn.init.uniform_(self.pointwise_conv1.bias, -pw1_max, pw1_max)
-            nn.init.uniform_(self.pointwise_conv2.weight, -pw2_max, pw2_max)
-            nn.init.uniform_(self.pointwise_conv2.bias, -pw2_max, pw2_max)
-            nn.init.uniform_(self.depthwise_conv.weight, -dw_max, dw_max)
-            nn.init.uniform_(self.depthwise_conv.bias, -dw_max, dw_max)
+        return x
 
 class MDConv(nn.Module):
-    def __init__(self, out_chan, n_chunks, stride=1, bias=False):
+    """
+    MDConv class implements a module to automatically set kernel size for dynamic depthwise convolution
+
+    Args:
+    - out_chan (int): Number of output channels.
+    - n_chunks (int): Number of input channels
+    - stride (int): Stride value for the convolution operation.
+    - bias (bool): If True, adds a learnable bias to the output.
+    """
+    def __init__(self, out_chan, n_chunks, stride, bias):
         super(MDConv, self).__init__()
         # split_layer finds ideal kernel size by doing output/input and appending it n_chunks times
         # Depth/channel value is found by: total_channels - sum(split)
