@@ -21,18 +21,6 @@ class DepthwiseConv2D(nn.Module):
     def forward(self, x):
         out = self.depthwise_conv(x)
         return out
-    
-class DepthwiseConv(nn.Module):
-    def __init__(self, in_channels, kernal_size, stride, bias=False):
-        super(DepthwiseConv, self).__init__()
-        padding = (kernal_size - 1) // 2
-
-        self.depthwise_conv = nn.Conv1d(in_channels, in_channels, kernel_size=kernal_size, padding=padding, stride=stride, groups=in_channels, bias=bias)
-
-    def forward(self, x):
-        out = self.depthwise_conv(x)
-        return out
-
 
 
 class GroupConv2D(nn.Module):

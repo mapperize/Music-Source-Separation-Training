@@ -3,9 +3,7 @@ from typing import List, Tuple
 import torch
 import torch.nn as nn
 
-from models.scnet.utils import create_intervals
-from models.scnet.modules.mdconv import MDConv, DepthwiseConv
-
+from models.scnet.utils import create_intervals, split_layer
 
 class Downsample(nn.Module):
     """
@@ -132,7 +130,27 @@ class ConformerConvolution(nn.Module):
             nn.init.uniform_(self.pointwise_conv2.bias, -pw2_max, pw2_max)
             nn.init.uniform_(self.depthwise_conv.weight, -dw_max, dw_max)
             nn.init.uniform_(self.depthwise_conv.bias, -dw_max, dw_max)
+
+class MDConv(nn.Module):
+    def __init__(self, out_chan, n_chunks, stride=1, bias=False):
+        super(MDConv, self).__init__()
         
+        self.split_out_channels = split_layer(out_chan, n_chunks)
+        self.layers = nn.ModuleList()
+
+        kernel_size = kernel_size = 2 * idx + 3
+        padding = padding = (kernel_size - 1) // 2
+        in_chan = self.split_out_channels[idx]
+
+        for idx in range(n_chunks):
+            conv = nn.Conv2d(in_chan, in_chan, kernel_size=kernel_size, padding=padding, stride=stride, groups=in_chan, bias=bias)
+            self.layers.append(conv)
+        
+    def forward(self, x):
+        split = torch.split(x, self.split_out_channels, dim=1)
+        out = torch.cat([layer(s) for layer, s in zip(self.layers, split)], dim=1)
+        return out
+    
 class SDLayer(nn.Module):
     """
     SDLayer class implements a subband decomposition layer with downsampling and convolutional modules.
