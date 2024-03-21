@@ -81,7 +81,7 @@ class ConformerConvolution(nn.Module):
             in_channels=d_model, out_channels=d_model * 2, kernel_size=kernel_size, stride=1, padding=0, bias=True
         )
 
-        self.depthwise_conv = DepthwiseConv(
+        self.depthwise_conv = MDConv(
             in_channels=dw_conv_input_dim,
             kernel_size=kernel_size,
             stride=1,
@@ -134,16 +134,15 @@ class ConformerConvolution(nn.Module):
 class MDConv(nn.Module):
     def __init__(self, out_chan, n_chunks, stride=1, bias=False):
         super(MDConv, self).__init__()
-        
+        # split_layer finds ideal kernel size by doing output/input and appending it n_chunks times
+        # Depth/channel value is found by: total_channels - sum(split)
         self.split_out_channels = split_layer(out_chan, n_chunks)
         self.layers = nn.ModuleList()
-
-        kernel_size = kernel_size = 2 * idx + 3
-        padding = padding = (kernel_size - 1) // 2
-        in_chan = self.split_out_channels[idx]
-
         for idx in range(n_chunks):
-            conv = nn.Conv2d(in_chan, in_chan, kernel_size=kernel_size, padding=padding, stride=stride, groups=in_chan, bias=bias)
+            kernel_size = 2 * idx + 3
+            padding = padding = (kernel_size - 1) // 2
+            in_chan = self.split_out_channels[idx]
+            conv = nn.Conv2d(in_chan, in_chan, kernel_size=kernel_size, padding=padding, stride=stride, bias=bias)
             self.layers.append(conv)
         
     def forward(self, x):

@@ -7,7 +7,7 @@ https://github.com/amanteur/SCNet-PyTorch
 from typing import List, Tuple, Union
 
 import torch
-
+import numpy as np
 
 def create_intervals(
     splits: List[Union[float, int]]
@@ -135,7 +135,10 @@ def compute_gcr(subband_shapes: List[List[int]]) -> float:
     return float(gcr)
 
 def split_layer(total_channels, num_groups):
-    split = [int(np.ceil(total_channels / num_groups)) for _ in range(num_groups)]
+    ideal = int(np.ceil(total_channels / num_groups)) 
+    split = []
+    for _ in range(num_groups):
+        split.append(ideal)
     split[num_groups - 1] += total_channels - sum(split)
     return split
 
