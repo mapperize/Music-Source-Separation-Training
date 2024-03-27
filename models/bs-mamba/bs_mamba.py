@@ -114,7 +114,7 @@ class MoELayer(Module):
 
 
 class MambaLayer(Module):
-    def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, i = 0, **kwargs):
+    def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
         super().__init__()
         ssm_cfg = {
                 d_model=d_model,        # Model dimension d_model
