@@ -11,7 +11,7 @@ from beartype import beartype
 from einops import rearrange, pack, unpack
 from einops.layers.torch import Rearrange
 
-from mamba_ssm.modules.mamba_simple import Mamba
+from mamba_ssm.modules.mamba_simple import Mamba, Block
 from mamba_ssm.ops.triton.layernorm import RMSNorm as fusedRMSNorm
 
 # helper functions
@@ -47,7 +47,7 @@ class RMSNorm(Module):
     def forward(self, x):
         return F.normalize(x, dim=-1) * self.scale * self.gamma
 
-
+# fix this shit moelayer bullshit
 class MoELayer(Module):
     """
     Theory:
@@ -64,7 +64,12 @@ class MoELayer(Module):
             num_experts = 4, top_k = 2
         ):
         super().__init__()
-
+        ssm_cfg = {
+                d_model=d_model,        # Model dimension d_model
+                d_state=d_state,        # SSM state expansion factor
+                d_conv=d_conv,          # Local convolution width
+                expand=expand,          # Block expansion factor
+        }
         self.top_k = top_k
         self.num_experts = num_experts
         self.router = Linear(d_model, num_experts)
@@ -72,9 +77,16 @@ class MoELayer(Module):
 
         self.experts = ModuleList(
             [
-                Mamba(d_model, d_state, d_conv, expand, eps)
+                self.mamba_block = Mamba(**ssm_cfg)
                 for i in range(num_experts)
             ]   
+        )
+        self.mamba_block = Mamba(
+            dim=d_model, 
+            mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
+            norm_cls=nn.LayerNorm, 
+            fused_add_norm=True, 
+            residual_in_fp32=False
         )
     
     def forward(self, x, residual = None, params = None):
@@ -102,21 +114,24 @@ class MoELayer(Module):
 
 
 class MambaLayer(Module):
-    def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, **kwargs):
+    def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, i = 0, **kwargs):
         super().__init__()
-        self.norm = fusedRMSNorm(d_model, eps=eps)
-        self.mamba = Mamba(
+        ssm_cfg = {
                 d_model=d_model,        # Model dimension d_model
                 d_state=d_state,        # SSM state expansion factor
                 d_conv=d_conv,          # Local convolution width
                 expand=expand,          # Block expansion factor
+        }
+        self.mamba_block = Block(
+                dim=d_model, 
+                mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
+                norm_cls=nn.LayerNorm, 
+                fused_add_norm=True, 
+                residual_in_fp32=False          
         )
     
     def forward(self, x, residual = None, params = None):
-        
-        x, residual = self.norm(x, residual = residual, prenorm = True)
-        x = self.mamba(x, inference_params = params)
-
+        x, residual = self.mamba_block(x)
         return x, residual
 
 
@@ -132,15 +147,18 @@ class MambaModule(Module):
         super().__init__()
 
         layer = MoELayer if use_moe else MambaLayer
-        kwargs = {
+        kwargs_ff = {
             d_state: ff_state, d_conv: ff_conv, d_expand: ff_expand,
             num_experts: num_experts, top_k: top_k
+        }
+        kwargs_attn = {
+            d_state: attn_state, d_Conv: attn_conv, d_expand: attn_expand,
         }
         
         self.layers = ModuleList(
             [
-                MambaLayer(d_model=d_model, d_state=attn_state, d_conv=attn_conv, expand=attn_expand, eps=eps),
-                layer(d_model=d_model, eps=eps **kwargs)
+                MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
+                layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
             ]
             for i in range(depth)
         )
