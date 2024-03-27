@@ -5,18 +5,9 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
-import yaml
-from ml_collections import ConfigDict
-from omegaconf import OmegaConf
 
 
-def get_model_from_config(model_type, config_path):
-    with open(config_path) as f:
-        if model_type == 'htdemucs':
-            config = OmegaConf.load(config_path)
-        else:
-            config = ConfigDict(yaml.load(f, Loader=yaml.FullLoader))
-
+def get_model_from_config(model_type, config):
     if model_type == 'mdx23c':
         from models.mdx23c_tfc_tdf_v3 import TFC_TDF_net
         model = TFC_TDF_net(config)
@@ -44,16 +35,16 @@ def get_model_from_config(model_type, config_path):
         model = MultiMaskMultiSourceBandSplitRNNSimple(
             **config.model
         )
-    elif model_type == 'scnet':
-        from models.scnet import SCNet
-        model = SCNet(
-            **config.model
+    elif model_type == 'bs_mamba':
+        from models.bs_mamba import BSMamba
+        model = BSMamba(
+            **dict(config.model)
         )
     else:
         print('Unknown model: {}'.format(model_type))
         model = None
 
-    return model, config
+    return model
 
 
 def demix_track(config, model, mix, device):
@@ -76,14 +67,15 @@ def demix_track(config, model, mix, device):
             else:
                 req_shape = (len(config.training.instruments),) + tuple(mix.shape)
 
-            result = torch.zeros(req_shape, dtype=torch.float32)
-            counter = torch.zeros(req_shape, dtype=torch.float32)
+            mix = mix.to(device)
+            result = torch.zeros(req_shape, dtype=torch.float32).to(device)
+            counter = torch.zeros(req_shape, dtype=torch.float32).to(device)
             i = 0
             batch_data = []
             batch_locations = []
             while i < mix.shape[1]:
                 # print(i, i + C, mix.shape[1])
-                part = mix[:, i:i + C].to(device)
+                part = mix[:, i:i + C]
                 length = part.shape[-1]
                 if length < C:
                     if length > C // 2 + 1:
@@ -99,7 +91,7 @@ def demix_track(config, model, mix, device):
                     x = model(arr)
                     for j in range(len(batch_locations)):
                         start, l = batch_locations[j]
-                        result[..., start:start+l] += x[j][..., :l].cpu()
+                        result[..., start:start+l] += x[j][..., :l]
                         counter[..., start:start+l] += 1.
                     batch_data = []
                     batch_locations = []
@@ -122,44 +114,56 @@ def demix_track_demucs(config, model, mix, device):
     S = len(config.training.instruments)
     C = config.training.samplerate * config.training.segment
     N = config.inference.num_overlap
-    batch_size = config.inference.batch_size
     step = C // N
     # print(S, C, N, step, mix.shape, mix.device)
 
-    with torch.cuda.amp.autocast(enabled=config.training.use_amp):
+    with torch.cuda.amp.autocast():
         with torch.inference_mode():
+            mix = mix.to(device)
             req_shape = (S, ) + tuple(mix.shape)
-            result = torch.zeros(req_shape, dtype=torch.float32)
-            counter = torch.zeros(req_shape, dtype=torch.float32)
+            result = torch.zeros(req_shape, dtype=torch.float32).to(device)
+            counter = torch.zeros(req_shape, dtype=torch.float32).to(device)
             i = 0
-            batch_data = []
-            batch_locations = []
+            all_parts = []
+            all_lengths = []
+            all_steps = []
             while i < mix.shape[1]:
                 # print(i, i + C, mix.shape[1])
-                part = mix[:, i:i + C].to(device)
+                part = mix[:, i:i + C]
                 length = part.shape[-1]
                 if length < C:
                     part = nn.functional.pad(input=part, pad=(0, C - length, 0, 0), mode='constant', value=0)
-                batch_data.append(part)
-                batch_locations.append((i, length))
+                all_parts.append(part)
+                all_lengths.append(length)
+                all_steps.append(i)
                 i += step
+            all_parts = torch.stack(all_parts, dim=0)
+            # print(all_parts.shape)
 
-                if len(batch_data) >= batch_size or (i >= mix.shape[1]):
-                    arr = torch.stack(batch_data, dim=0)
-                    x = model(arr)
-                    for j in range(len(batch_locations)):
-                        start, l = batch_locations[j]
-                        result[..., start:start+l] += x[j][..., :l].cpu()
-                        counter[..., start:start+l] += 1.
-                    batch_data = []
-                    batch_locations = []
+            start_time = time.time()
+            res = model(all_parts)
+            # print(res.shape)
+            # print("Time:", time.time() - start_time)
+            # print(part.mean(), part.max(), part.min())
+            # print(x.mean(), x.max(), x.min())
 
+            for j in range(res.shape[0]):
+                x = res[j]
+                length = all_lengths[j]
+                i = all_steps[j]
+                # Sometimes model gives nan...
+                if torch.isnan(x[..., :length]).any():
+                    result[..., i:i+length] += all_parts[j][..., :length].to(device)
+                else:
+                    result[..., i:i + length] += x[..., :length]
+                counter[..., i:i+length] += 1.
+
+            # print(result.mean(), result.max(), result.min())
+            # print(counter.mean(), counter.max(), counter.min())
             estimated_sources = result / counter
-            estimated_sources = estimated_sources.cpu().numpy()
-            np.nan_to_num(estimated_sources, copy=False, nan=0.0)
 
     if S > 1:
-        return {k: v for k, v in zip(config.training.instruments, estimated_sources)}
+        return {k: v for k, v in zip(config.training.instruments, estimated_sources.cpu().numpy())}
     else:
         return estimated_sources
 
