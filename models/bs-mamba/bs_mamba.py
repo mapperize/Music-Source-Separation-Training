@@ -65,7 +65,6 @@ class MoELayer(Module):
         ):
         super().__init__()
         ssm_cfg = {
-                'd_model' : d_model,        # Model dimension d_model
                 'd_state' : d_state,        # SSM state expansion factor
                 'd_conv' : d_conv,          # Local convolution width
                 'expand' : expand,          # Block expansion factor
@@ -75,13 +74,11 @@ class MoELayer(Module):
         self.router = nn.Linear(d_model, num_experts)
         self.norm = fusedRMSNorm(d_model, eps=eps)
 
-        self.experts = ModuleList(
-            [
-                Mamba(**ssm_cfg) for _ in range(num_experts)
-            ]   
+        self.experts = nn.Sequential(
+		Mamba(d_model=d_model, **ssm_cfg) for _ in range(num_experts)
         )
-        self.mamba_block = Mamba(
-            dim=d_model, 
+        self.mamba_block = Block(
+            dim=192, 
             mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
             norm_cls=nn.LayerNorm, 
             fused_add_norm=True, 
@@ -116,13 +113,12 @@ class MambaLayer(Module):
     def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
         super().__init__()
         ssm_cfg = {
-            'd_model' : d_model,        # Model dimension d_model
             'd_state' : d_state,        # SSM state expansion factor
             'd_conv' : d_conv,          # Local convolution width
-            'expand' : expand,          # Block expansion factor
+            'expand' : expand          # Block expansion factor
         }
         self.mamba_block = Block(
-                dim=d_model, 
+                dim=192, 
                 mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
                 norm_cls=nn.LayerNorm, 
                 fused_add_norm=True, 
@@ -147,17 +143,17 @@ class MambaModule(Module):
 
         layer = MoELayer if use_moe else MambaLayer
         kwargs_ff = {
-            'd_state': ff_state, 'd_conv': ff_conv, 'd_expand': ff_expand,
+            'd_state': ff_state, 'd_conv': ff_conv, 'expand': ff_expand,
             'num_experts': num_experts, 'top_k': top_k
         }
         kwargs_attn = {
-            'd_state': attn_state, 'd_Conv': attn_conv, 'd_expand': attn_expand
+            'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
         
         self.layers = ModuleList(
             [
-                MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
-                layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
+                MambaLayer(d_model=192, layer_idx=i, eps=eps, **kwargs_attn),
+                layer(d_model=192, layer_idx=i, eps=eps, **kwargs_ff)
             ]
             for i in range(depth)
         )
