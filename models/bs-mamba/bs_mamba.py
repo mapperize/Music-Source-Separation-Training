@@ -61,24 +61,23 @@ class MoELayer(Module):
     """
     def __init__(
             self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5,
-            num_experts = 4, top_k = 2
+            num_experts = 4, top_k = 2, layer_idx=None
         ):
         super().__init__()
         ssm_cfg = {
-                d_model=d_model,        # Model dimension d_model
-                d_state=d_state,        # SSM state expansion factor
-                d_conv=d_conv,          # Local convolution width
-                expand=expand,          # Block expansion factor
+                'd_model' : d_model,        # Model dimension d_model
+                'd_state' : d_state,        # SSM state expansion factor
+                'd_conv' : d_conv,          # Local convolution width
+                'expand' : expand,          # Block expansion factor
         }
         self.top_k = top_k
         self.num_experts = num_experts
-        self.router = Linear(d_model, num_experts)
+        self.router = nn.Linear(d_model, num_experts)
         self.norm = fusedRMSNorm(d_model, eps=eps)
 
         self.experts = ModuleList(
             [
-                self.mamba_block = Mamba(**ssm_cfg)
-                for i in range(num_experts)
+                Mamba(**ssm_cfg) for _ in range(num_experts)
             ]   
         )
         self.mamba_block = Mamba(
@@ -117,10 +116,10 @@ class MambaLayer(Module):
     def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
         super().__init__()
         ssm_cfg = {
-                d_model=d_model,        # Model dimension d_model
-                d_state=d_state,        # SSM state expansion factor
-                d_conv=d_conv,          # Local convolution width
-                expand=expand,          # Block expansion factor
+            'd_model' : d_model,        # Model dimension d_model
+            'd_state' : d_state,        # SSM state expansion factor
+            'd_conv' : d_conv,          # Local convolution width
+            'expand' : expand,          # Block expansion factor
         }
         self.mamba_block = Block(
                 dim=d_model, 
@@ -137,7 +136,7 @@ class MambaLayer(Module):
 
 class MambaModule(Module):
     def __init__(
-            self, d_model, depth = 1, eps = 1e-5
+            self, d_model, depth = 1, eps = 1e-5,
 
             attn_state = 16, attn_conv = 4, attn_expand = 2,    # attn-sized mamba
             ff_state = 16, ff_conv = 4, ff_expand = 2,          # ff-sized mamba
@@ -148,11 +147,11 @@ class MambaModule(Module):
 
         layer = MoELayer if use_moe else MambaLayer
         kwargs_ff = {
-            d_state: ff_state, d_conv: ff_conv, d_expand: ff_expand,
-            num_experts: num_experts, top_k: top_k
+            'd_state': ff_state, 'd_conv': ff_conv, 'd_expand': ff_expand,
+            'num_experts': num_experts, 'top_k': top_k
         }
         kwargs_attn = {
-            d_state: attn_state, d_Conv: attn_conv, d_expand: attn_expand,
+            'd_state': attn_state, 'd_Conv': attn_conv, 'd_expand': attn_expand
         }
         
         self.layers = ModuleList(
@@ -377,7 +376,7 @@ class BSMamba(Module):
         freqs_per_bands_with_complex = tuple(2 * f * self.audio_channels for f in freqs_per_bands)
 
         self.band_split = BandSplit(
-            dim=dim,
+            dim=d_model,
             dim_inputs=freqs_per_bands_with_complex
         )
 
@@ -385,7 +384,7 @@ class BSMamba(Module):
 
         for _ in range(num_stems):
             mask_estimator = MaskEstimator(
-                dim=dim,
+                dim=d_model,
                 dim_inputs=freqs_per_bands_with_complex,
                 depth=mask_estimator_depth
             )
