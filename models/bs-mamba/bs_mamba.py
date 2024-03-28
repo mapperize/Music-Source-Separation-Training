@@ -2,7 +2,6 @@ from functools import partial
 
 import torch
 from torch import nn, einsum, Tensor
-from torch.nn import Module, ModuleList
 import torch.nn.functional as F
 
 from beartype.typing import Tuple, Optional, List, Callable
@@ -38,7 +37,7 @@ def l2norm(t):
     return F.normalize(t, dim = -1, p = 2)
 
 
-class RMSNorm(Module):
+class RMSNorm(nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.scale = dim ** 0.5
@@ -48,7 +47,7 @@ class RMSNorm(Module):
         return F.normalize(x, dim=-1) * self.scale * self.gamma
 
 # fix this shit moelayer bullshit
-class MoELayer(Module):
+class MoELayer(nn.Module):
     """
     Theory:
     https://arxiv.org/abs/2402.01771
@@ -75,10 +74,10 @@ class MoELayer(Module):
         self.norm = fusedRMSNorm(d_model, eps=eps)
 
         self.experts = nn.ModuleList(
-		Mamba(d_model=d_model, **ssm_cfg) for _ in range(num_experts)
+		    Mamba(d_model=d_model, **ssm_cfg) for _ in range(num_experts)
         )
         self.mamba_block = Block(
-            dim=192, 
+            dim=d_model, 
             mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
             norm_cls=nn.LayerNorm, 
             fused_add_norm=True, 
@@ -109,7 +108,7 @@ class MoELayer(Module):
         return x, residual
 
 
-class MambaLayer(Module):
+class MambaLayer(nn.Module):
     def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
         super().__init__()
         ssm_cfg = {
@@ -118,7 +117,7 @@ class MambaLayer(Module):
             'expand' : expand          # Block expansion factor
         }
         self.mamba_block = Block(
-                dim=192, 
+                dim=d_model, 
                 mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
                 norm_cls=nn.LayerNorm, 
                 fused_add_norm=True, 
@@ -130,7 +129,7 @@ class MambaLayer(Module):
         return x, residual
 
 
-class MambaModule(Module):
+class MambaModule(nn.Module):
     def __init__(
             self, d_model, depth = 1, eps = 1e-5,
 
@@ -150,10 +149,10 @@ class MambaModule(Module):
             'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
         
-        self.layers = ModuleList(
+        self.layers = nn.ModuleList(
             [
-                MambaLayer(d_model=192, layer_idx=i, eps=eps, **kwargs_attn),
-                layer(d_model=192, layer_idx=i, eps=eps, **kwargs_ff)
+                MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
+                layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
             ]
             for i in range(depth)
         )
@@ -171,7 +170,7 @@ class MambaModule(Module):
 
 # bandsplit module
 
-class BandSplit(Module):
+class BandSplit(nn.Module):
     @beartype
     def __init__(
             self,
@@ -180,7 +179,7 @@ class BandSplit(Module):
     ):
         super().__init__()
         self.dim_inputs = dim_inputs
-        self.to_features = ModuleList([])
+        self.to_features = nn.ModuleList([])
 
         for dim_in in dim_inputs:
             net = nn.Sequential(
@@ -226,7 +225,7 @@ def MLP(
     return nn.Sequential(*net)
 
 
-class MaskEstimator(Module):
+class MaskEstimator(nn.Module):
     @beartype
     def __init__(
             self,
@@ -237,7 +236,7 @@ class MaskEstimator(Module):
     ):
         super().__init__()
         self.dim_inputs = dim_inputs
-        self.to_freqs = ModuleList([])
+        self.to_freqs = nn.ModuleList([])
         dim_hidden = dim * mlp_expansion_factor
 
         for dim_in in dim_inputs:
@@ -276,7 +275,7 @@ DEFAULT_FREQS_PER_BANDS = (
 )
 
 
-class BSMamba(Module):
+class BSMamba(nn.Module):
 
     @beartype
     def __init__(
@@ -320,7 +319,7 @@ class BSMamba(Module):
         self.audio_channels = 2 if stereo else 1
         self.num_stems = num_stems
 
-        self.layers = ModuleList([])
+        self.layers = nn.ModuleList([])
 
         """
             Roughly 3 * expand * d_model^2 parameters
