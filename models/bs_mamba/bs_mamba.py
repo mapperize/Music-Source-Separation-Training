@@ -88,17 +88,14 @@ class MoELayer(nn.Module):
 
         k_probs, k_indices = torch.topk(route, k=self.top_k, dim=1)
 
-        x_view = x.view(-1, x_shape[-1])
+        x_view = x.view(-1, self.num_experts)
 
         for idx, expert in enumerate(self.experts):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
                     y = x[indices]
-                    print(y)
-                    pdb.set_trace()
                     x_view[indices] = F.normalize(expert(y, inference_params = params))   
-                    x_view[indices] = k_probs[:, k][indices].unsqueeze(1)
 
         x = x_view.view(*x_shape)
         return x, residual
