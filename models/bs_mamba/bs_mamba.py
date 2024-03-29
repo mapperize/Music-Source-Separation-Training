@@ -149,8 +149,8 @@ class MambaModule(nn.Module):
         }
         
         self.layers = nn.ModuleList(
-            [MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn)]
-            [layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)]
+            [MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
+            layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)]
             for i in range(depth)
         )
 
