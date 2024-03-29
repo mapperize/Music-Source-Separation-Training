@@ -123,8 +123,6 @@ class MambaLayer(nn.Module):
     
     def forward(self, x, residual = None, params = None):
         x, residual = self.mamba_block(x)
-        print(x)
-        pdb.set_trace()
         return x, residual
 
 class MambaModule(nn.Module):
@@ -136,7 +134,7 @@ class MambaModule(nn.Module):
 
             use_moe = False, num_experts = None, top_k = None   # moe params
         ):
-        super().__init__()
+        super()        pdb.set_trace().__init__()
 
         layer = MoELayer if use_moe else MambaLayer
         kwargs_ff = {
@@ -160,6 +158,8 @@ class MambaModule(nn.Module):
         residual = None
         for attn, ff in self.layers:
             x, residual = attn(x, residual, params)
+            print(x)
+            pdb.set_trace()
             x, residual = ff(x, residual, params)
         return self.norm(x, residual = residual)
 
