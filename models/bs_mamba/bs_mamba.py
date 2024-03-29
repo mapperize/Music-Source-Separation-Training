@@ -130,7 +130,7 @@ class MambaLayer(nn.Module):
 
 class MambaModule(nn.Module):
     def __init__(
-            self, d_model, depth = 1, eps = 1e-5,
+            self, d_model, depth = 1, eps = 1e-5, layer_idx=None,
 
             attn_state = 16, attn_conv = 4, attn_expand = 2,    # attn-sized mamba
             ff_state = 16, ff_conv = 4, ff_expand = 2,          # ff-sized mamba
@@ -149,8 +149,8 @@ class MambaModule(nn.Module):
         }
         # I have no clue when putting multiple classes in a list inside ModuleList causes error
         self.layers = nn.Sequential([
-            MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
-            layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
+            MambaLayer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_attn),
+            layer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_ff)
         ])
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
@@ -338,10 +338,10 @@ class BSMamba(nn.Module):
             top_k = top_k
         )
         
-        for _ in range(depth):
+        for i in range(depth):
             mamba_modules = [
-                MambaModule(depth = time_mamba_depth, **mamba_kwargs),
-                MambaModule(depth = freq_mamba_depth, **mamba_kwargs)
+                MambaModule(depth = time_mamba_depth, layer_idx=i **mamba_kwargs),
+                MambaModule(depth = freq_mamba_depth, layer_idx=i, **mamba_kwargs)
             ]
             self.layers.append(nn.ModuleList(mamba_modules))
 
