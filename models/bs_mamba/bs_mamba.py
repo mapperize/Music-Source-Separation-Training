@@ -1,4 +1,5 @@
 from functools import partial
+import pdb
 
 import torch
 from torch import nn, einsum, Tensor
@@ -148,7 +149,7 @@ class MambaModule(nn.Module):
         }
         # I have no clue when putting multiple classes in a list inside ModuleList causes error
         self.layers = nn.ModuleList([
-        nn.Sequential([
+            nn.Sequential([
             MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
             layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
             ])
@@ -436,7 +437,7 @@ class BSMamba(nn.Module):
                               'b s f t c -> b (f s) t c')  # merge stereo / mono into the frequency, with frequency leading dimension, for band splitting
 
         x = rearrange(stft_repr, 'b f t c -> b t (f c)')
-
+        pdb(set_trace)
         x = self.band_split(x)
 
         # axial / hierarchical mamba
