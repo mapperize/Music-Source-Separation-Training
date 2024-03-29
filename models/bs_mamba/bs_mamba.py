@@ -147,17 +147,25 @@ class MambaModule(nn.Module):
         kwargs_attn = {
             'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
-        # I have no clue when putting multiple classes in a list inside ModuleList causes error
-        self.layers = nn.Sequential(
-            MambaLayer(d_model=d_model, eps=eps, **kwargs_attn),
-            layer(d_model=d_model, eps=eps, **kwargs_ff)
-        )
+        self.layer = MambaBlock(d_model=d_model, eps=eps, kwargs_attn=kwargs_attn, kwargs_ff=kwargs_ff)
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
     def forward(self, x, residual = None, params = None):
-        x, residual = self.layers(x, residual, params)
+        for _ in range(depth):
+            x, residual = self.layer(x, residual, params)
         return self.norm(x)
 
+class MambaBlock(nn.Sequential):
+    def __init__(self, d_model, eps, kwargs_attn, kwargs_ff):
+        super().__init__()
+        self.d_model = d_model
+        self.eps = eps
+        self.kwargs_attn = kwargs_attn
+        self.kwargs_ff = kwargs_ff
+    def forward(self, x, residual, params):
+        x, residual = MambaLayer(d_model=d_model, eps=eps, **kwargs_attn)
+        x, residual = layer(d_model=d_model, eps=eps, **kwargs_ff)
+        return x, residual
 
 # bandsplit module
 
