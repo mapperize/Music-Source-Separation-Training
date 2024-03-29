@@ -116,8 +116,8 @@ class MambaLayer(nn.Module):
                 residual_in_fp32=False          
         )
     
-    def forward(self, x, residual = None, params = None):
-        x, residual = self.mamba_block(x, residual=residual, inference_params=params)
+    def forward(self, x, residual = None, inference_params = None):
+        x, residual = self.mamba_block(x, residual=residual, inference_params=inference_params)
         return x, residual
 
 class MambaModule(nn.Module):
