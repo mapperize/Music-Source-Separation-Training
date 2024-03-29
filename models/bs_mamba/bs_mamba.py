@@ -156,8 +156,8 @@ class MambaModule(nn.Module):
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
     def forward(self, x, params = None):
-        print(x.shape)
         for _ in range(self.depth):
+            print(params)
             x, residual = self.layer(x, params)
         return self.norm(x, residual = residual)
 
