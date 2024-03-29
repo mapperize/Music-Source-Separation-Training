@@ -126,6 +126,7 @@ class MambaLayer(nn.Module):
     
     def forward(self, x, residual = None, params = None):
         x, residual = self.mamba_block(x)
+        print(x.shape)
         return x, residual
 
 class MambaModule(nn.Module):
@@ -156,7 +157,6 @@ class MambaModule(nn.Module):
 
     def forward(self, x, residual = None):
         for _ in range(self.depth):
-            print(x.shape)
             x, residual = self.layers(x)
         return self.norm(x)
 
