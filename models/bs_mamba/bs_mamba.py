@@ -127,7 +127,6 @@ class MambaLayer(nn.Module):
         x, residual = self.mamba_block(x)
         return x, residual
 
-
 class MambaModule(nn.Module):
     def __init__(
             self, d_model, depth = 1, eps = 1e-5,
@@ -147,12 +146,12 @@ class MambaModule(nn.Module):
         kwargs_attn = {
             'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
-        
-        self.layers = nn.ModuleList(
-            [MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
-            layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)]
-            for i in range(depth)
-        )
+        # I have no clue when putting multiple classes in a list inside ModuleList causes error
+        self.layers = nn.ModuleList()
+        for i in range(depth):
+            attention = MambaLayer(d_model=d_model, eps=eps, **kwargs_attn)
+            feedforward = layer(d_model=d_model, eps=eps, **kwargs_ff)
+            self.layers.append(nn.ModuleList([attention_layer, feedforward_layer])) 
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
