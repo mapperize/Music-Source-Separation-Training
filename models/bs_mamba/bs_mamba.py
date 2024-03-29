@@ -149,13 +149,13 @@ class MambaModule(nn.Module):
             'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
         
-        self.layers = nn.ModuleList(
-            [
+        self.layers = nn.ModuleList([
+            nn.ModuleList([
                 MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
                 layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
-            ]
+            ])
             for i in range(depth)
-        )
+        ])
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
