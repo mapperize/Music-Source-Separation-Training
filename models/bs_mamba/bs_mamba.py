@@ -148,7 +148,7 @@ class MambaModule(nn.Module):
         }
         # I have no clue why when putting multiple calls to classes inside ModuleList causes error
         # and im taking the lazy way out
-        self.layers = nn.Sequential(
+        self.layer = nn.Sequential(
             MambaLayer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_attn),
             layer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_ff)
         )
@@ -159,7 +159,7 @@ class MambaModule(nn.Module):
     def forward(self, x, params = None):
         residual = None
         for _ in range(self.depth):
-            x, residual = layer(x, residual, params)
+            x, residual = self.layer(x, residual, params)
         return self.norm(x, residual = residual)
 
 
