@@ -93,7 +93,8 @@ class MoELayer(nn.Module):
         for idx, expert in enumerate(self.experts):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
-                print(indicies)
+                print(indices)
+                pdb.set_trace()
                 if indices.numel() > 0:
                     x_view[indices] = expert(x[indices], inference_params = params)
                     x_view[indices] *= k_probs[:, k][indices].unsqueeze(1)
