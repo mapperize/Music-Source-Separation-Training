@@ -340,7 +340,7 @@ class BSMamba(nn.Module):
         
         for i in range(depth):
             mamba_modules = [
-                MambaModule(depth = time_mamba_depth, layer_idx=i **mamba_kwargs),
+                MambaModule(depth = time_mamba_depth, layer_idx=i, **mamba_kwargs),
                 MambaModule(depth = freq_mamba_depth, layer_idx=i, **mamba_kwargs)
             ]
             self.layers.append(nn.ModuleList(mamba_modules))
