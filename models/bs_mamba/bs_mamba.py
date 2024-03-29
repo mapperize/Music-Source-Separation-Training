@@ -94,7 +94,10 @@ class MoELayer(nn.Module):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
-                    x_view[indices] = F.normalize(expert(x[indices], inference_params = params))   
+                    y = x[indices]
+                    print(y)
+                    pdb.set_trace()
+                    x_view[indices] = F.normalize(expert(y, inference_params = params))   
                     x_view[indices] = k_probs[:, k][indices].unsqueeze(1)
 
         x = x_view.view(*x_shape)
