@@ -436,10 +436,10 @@ class BSMamba(nn.Module):
                               'b s f t c -> b (f s) t c')  # merge stereo / mono into the frequency, with frequency leading dimension, for band splitting
 
         x = rearrange(stft_repr, 'b f t c -> b t (f c)')
-        pdb(set_trace)
+        pdb.set_trace
         x = self.band_split(x)
 
-        # axial / hierarchical mamba
+        # axial / hierarchi cal mamba
 
         for time_mamba, freq_mamba in self.layers:
 
