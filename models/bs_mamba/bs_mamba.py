@@ -93,10 +93,9 @@ class MoELayer(nn.Module):
         for idx, expert in enumerate(self.experts):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
-                pdb.set_trace()
                 if indices.numel() > 0:
-                    y = x_view[indices]
-                    x_view[indices] = F.normalize(expert(y))   
+                    y = F.normalize(x_view[indices])
+                    x_view[indices] = (expert(y))   
 
         x = x_view.view(*x_shape)
         return x, residual
