@@ -68,7 +68,7 @@ class MoELayer(nn.Module):
         self.router = nn.Linear(d_model, num_experts)
         self.norm = fusedRMSNorm(d_model, eps=eps)
 
-        self.experts = ModuleList(
+        self.experts = nn.ModuleList(
             [
                 Mamba(d_model, d_state, d_conv, expand, eps)
                 for i in range(num_experts)
