@@ -97,7 +97,6 @@ class MoELayer(nn.Module):
                     index_prob_selected = k_probs[:, k][indices].unsqueeze(1)
                     index = index_mamba * index_prob_selected
                     x_view =+ index
-                    x_view = RMSNorm(x)
 
         x = x_view.view(*x_shape)
         return x, residual
