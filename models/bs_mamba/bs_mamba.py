@@ -66,7 +66,7 @@ class MoELayer(nn.Module):
 
         self.top_k = top_k
         self.num_experts = num_experts
-        self.router = Linear(d_model, num_experts)
+        self.router = nn.Linear(d_model, num_experts)
         self.norm = fusedRMSNorm(d_model, eps=eps)
 
         self.experts = ModuleList(
