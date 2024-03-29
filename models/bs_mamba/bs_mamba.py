@@ -123,13 +123,13 @@ class MambaLayer(nn.Module):
                 residual_in_fp32=False          
         )
     
-    def forward(self, x):
+    def forward(self, x, residual = None, params = None):
         x, residual = self.mamba_block(x)
         return x, residual
 
 class MambaModule(nn.Module):
     def __init__(
-            self, d_model, depth = 1, eps = 1e-5,
+            self, d_model, depth = 1, eps = 1e-5, layer_idx=None,
 
             attn_state = 16, attn_conv = 4, attn_expand = 2,    # attn-sized mamba
             ff_state = 16, ff_conv = 4, ff_expand = 2,          # ff-sized mamba
@@ -148,17 +148,18 @@ class MambaModule(nn.Module):
         }
         # I have no clue why when putting multiple calls to classes inside ModuleList causes error
         # and im taking the lazy way out
-        self.layer = nn.Sequential(
-            MambaLayer(d_model=d_model, eps=eps, **kwargs_attn),
-            layer(d_model=d_model, eps=eps, **kwargs_ff)
+        self.layers = nn.Sequential(
+            MambaLayer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_attn),
+            layer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_ff)
         )
+
         self.depth = depth
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
     def forward(self, x, params = None):
         residual = None
         for _ in range(self.depth):
-            x, residual = self.layer(x)
+            x, residual = layer(x, residual, params)
         return self.norm(x, residual = residual)
 
 
@@ -340,8 +341,8 @@ class BSMamba(nn.Module):
         
         for i in range(depth):
             mamba_modules = [
-                MambaModule(depth = time_mamba_depth, **mamba_kwargs),
-                MambaModule(depth = freq_mamba_depth, **mamba_kwargs)
+                MambaModule(depth = time_mamba_depth, layer_idx=i, **mamba_kwargs),
+                MambaModule(depth = freq_mamba_depth, layer_idx=i, **mamba_kwargs)
             ]
             self.layers.append(nn.ModuleList(mamba_modules))
 
