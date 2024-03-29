@@ -90,17 +90,15 @@ class MoELayer(nn.Module):
         x_view = x.view(-1, x_shape[-1])
 
         for idx, expert in enumerate(self.experts):
-            for k in range(self.top_k):
+            for k in self.top_k:
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
-                    index_mamba = expert(x_view[indices], inference_params=params)
-                    index_prob_selected = k_probs[:, k][indices].unsqueeze(1)
-                    index = index_mamba * index_prob_selected
+                    x[indices] = expert(x[indices], inference_params = params)
+                    x[indices] *= k_probs[:, k][indices].unsqueeze(1)
 
-                    x_view[indices] = index.half() # why the fuck does it need to be outside!!!
+        x = x.view(*x_shape)
+        return x, residual
 
-            x = x_view.view(*x_shape)
-            return x, residual
 
 class MambaLayer(nn.Module):
     def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
