@@ -118,7 +118,7 @@ class MambaLayer(nn.Module):
         }
         self.mamba_block = Block(
                 dim=d_model, 
-                mixer_cls=partial(Mamba, d_model=d_model, **ssm_cfg), 
+                mixer_cls=partial(Mamba, **ssm_cfg), 
                 norm_cls=nn.LayerNorm, 
                 fused_add_norm=True, 
                 residual_in_fp32=False          
