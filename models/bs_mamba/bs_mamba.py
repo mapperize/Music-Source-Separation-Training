@@ -90,7 +90,7 @@ class MoELayer(nn.Module):
         x_view = x.view(-1, x_shape[-1])
 
         for idx, expert in enumerate(self.experts):
-            for k in self.top_k:
+            for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
                     x[indices] = expert(x[indices], inference_params = params)
