@@ -149,8 +149,8 @@ class MambaModule(nn.Module):
         }
         # I have no clue when putting multiple classes in a list inside ModuleList causes error
         self.layers = nn.Sequential(
-            MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
-            layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
+            MambaLayer(d_model=d_model, eps=eps, **kwargs_attn),
+            layer(d_model=d_model, eps=eps, **kwargs_ff)
         )
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
