@@ -156,7 +156,7 @@ class MambaModule(nn.Module):
 
     def forward(self, x, residual = None, params = None):
         for _ in range(self.depth):
-            x, residual = self.layers(x, residual, params)
+            x, residual = self.layers(x)
         return self.norm(x)
 
 # bandsplit module
