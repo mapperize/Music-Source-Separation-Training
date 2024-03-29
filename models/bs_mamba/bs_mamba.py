@@ -53,7 +53,7 @@ class MoELayer(nn.Module):
     Theory:
     https://arxiv.org/abs/2402.01771
     https://arxiv.org/abs/2401.04081
-    https://arxiv.org/pdf/2210.05144
+        https://arxiv.org/pdf/2210.05144
 
     Mamba as the expert
     TODO: Block should be replaced with custom kernel for parallel computation
@@ -87,17 +87,15 @@ class MoELayer(nn.Module):
         route = torch.softmax(route, dim=1)
 
         k_probs, k_indices = torch.topk(route, k=self.top_k, dim=1)
-        
+
         x_view = x.view(-1, x_shape[-1])
 
         for idx, expert in enumerate(self.experts):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
-                print(indices)
-                pdb.set_trace()
                 if indices.numel() > 0:
-                    x_view[indices] = expert(x[indices], inference_params = params)
-                    x_view[indices] *= k_probs[:, k][indices].unsqueeze(1)
+                    x_view[indices] = nn.function.normalize(expert(x[indices], inference_params = params))   
+                    x_view[indices] = k_probs[:, k][indices].unsqueeze(1)
 
         x = x_view.view(*x_shape)
         return x, residual
