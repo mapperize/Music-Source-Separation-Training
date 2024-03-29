@@ -81,7 +81,6 @@ class MoELayer(nn.Module):
     
     def forward(self, x, residual = None, params = None):
         x_shape = x.shape
-        print(x_shape)
         x, residual = self.norm(x, residual = residual, prenorm = True)
 
         route = self.router(x)
@@ -96,6 +95,7 @@ class MoELayer(nn.Module):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
+                    print(indices.numel())
                     x[indices] = expert(x[indices], inference_params = params)
                     x[indices] *= k_probs[:, k][indices].unsqueeze(1)
 
