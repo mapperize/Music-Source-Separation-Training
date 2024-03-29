@@ -85,7 +85,6 @@ class MoELayer(nn.Module):
         )
     
     def forward(self, x, residual = None, params = None):
-        
         x_shape = x.shape
         x, residual = self.mamba_block(x)
 
@@ -149,22 +148,18 @@ class MambaModule(nn.Module):
             'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
         
-        self.layers = nn.ModuleList([
-            nn.ModuleList([
-                MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
-                layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
-            ])
+        self.layers = nn.ModuleList(
+            [MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn)]
+            [layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)]
             for i in range(depth)
-        ])
+        )
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
     def forward(self, x, params = None):
-
         residual = None
         for layer in self.layers:
             x, residual = layer(x, residual, params)
-        
         return self.norm(x, residual = residual)
 
 
