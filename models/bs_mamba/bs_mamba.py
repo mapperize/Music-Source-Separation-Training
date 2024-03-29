@@ -143,7 +143,7 @@ class MambaModule(nn.Module):
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
                 MambaLayer(d_model=d_model, eps=eps, **kwargs_attn),
-                MambaLayer(d_model=d_model, eps=eps, **kwargs_ff) #temp: gotta fix moe
+                layer(d_model=d_model, eps=eps, **kwargs_ff) #temp: gotta fix moe
             ]))
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
