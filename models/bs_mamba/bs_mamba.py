@@ -94,8 +94,9 @@ class MoELayer(nn.Module):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 print(indices)
-                pdb.set_trace()
+                
                 print(x)
+                pdb.set_trace()
                 if indices.numel() > 0:
                     y = x[indices]
                     x_view[indices] = F.normalize(expert(y))   
@@ -122,6 +123,8 @@ class MambaLayer(nn.Module):
     
     def forward(self, x, residual = None, params = None):
         x, residual = self.mamba_block(x)
+        print(x)
+        pdb.set_trace()
         return x, residual
 
 class MambaModule(nn.Module):
