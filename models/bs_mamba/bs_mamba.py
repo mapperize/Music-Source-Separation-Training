@@ -95,7 +95,7 @@ class MoELayer(nn.Module):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
                     y = x[indices]
-                    x_view[indices] = F.normalize(expert(y, inference_params = params))   
+                    x_view[indices] = F.normalize(expert(y))   
 
         x = x_view.view(*x_shape)
         return x, residual
