@@ -47,13 +47,12 @@ class RMSNorm(nn.Module):
     def forward(self, x):
         return F.normalize(x, dim=-1) * self.scale * self.gamma
 
-# fix this shit moelayer bullshit
-class MoELayer(nn.Module):
+class MoELayer(Module):
     """
     Theory:
     https://arxiv.org/abs/2402.01771
     https://arxiv.org/abs/2401.04081
-        https://arxiv.org/pdf/2210.05144
+    https://arxiv.org/pdf/2210.05144
 
     Mamba as the expert
     TODO: Block should be replaced with custom kernel for parallel computation
@@ -61,24 +60,24 @@ class MoELayer(nn.Module):
     """
     def __init__(
             self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5,
-            num_experts = 4, top_k = 2, layer_idx=None
+            num_experts = 4, top_k = 2
         ):
         super().__init__()
-        ssm_cfg = {
-                'd_state' : d_state,        # SSM state expansion factor
-                'd_conv' : d_conv,          # Local convolution width
-                'expand' : expand,          # Block expansion factor
-        }
+
         self.top_k = top_k
         self.num_experts = num_experts
-        self.router = nn.Linear(d_model, num_experts)
+        self.router = Linear(d_model, num_experts)
         self.norm = fusedRMSNorm(d_model, eps=eps)
 
-        self.experts = nn.ModuleList(
-		    Mamba(d_model=d_model, **ssm_cfg) for _ in range(num_experts)
+        self.experts = ModuleList(
+            [
+                Mamba(d_model, d_state, d_conv, expand, eps)
+                for i in range(num_experts)
+            ]   
         )
     
     def forward(self, x, residual = None, params = None):
+        
         x_shape = x.shape
         x, residual = self.norm(x, residual = residual, prenorm = True)
 
@@ -87,19 +86,18 @@ class MoELayer(nn.Module):
         route = torch.softmax(route, dim=1)
 
         k_probs, k_indices = torch.topk(route, k=self.top_k, dim=1)
-
-        x_view = x.view(-1, x_shape[-1])
+        
+        x = x.view(-1, x_shape[-1])
 
         for idx, expert in enumerate(self.experts):
-            for k in range(self.top_k):
+            for k in self.top_k:
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
-                    x[indices] = expert(x[indices])
+                    x[indices] = expert(x[indices], inference_params = params)
                     x[indices] *= k_probs[:, k][indices].unsqueeze(1)
 
-        x = x_view.view(*x_shape)
+        x = x.view(*x_shape)
         return x, residual
-
 
 class MambaLayer(nn.Module):
     def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
