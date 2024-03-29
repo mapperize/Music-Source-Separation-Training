@@ -125,6 +125,7 @@ class MambaLayer(nn.Module):
         )
     
     def forward(self, x, residual = None, params = None):
+        print(x)
         x, residual = self.mamba_block(x)
         return x, residual
 
@@ -154,7 +155,7 @@ class MambaModule(nn.Module):
         self.norm = fusedRMSNorm(d_model, eps = eps)
         self.depth = depth
 
-    def forward(self, x, residual = None, params = None):
+    def forward(self, x, residual = None):
         for _ in range(self.depth):
             x, residual = self.layers(x)
         return self.norm(x)
