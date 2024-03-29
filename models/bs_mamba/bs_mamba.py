@@ -93,10 +93,12 @@ class MoELayer(nn.Module):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
-                    index = expert(x_view[indices], inference_params = params)
-                    x_view *= k_probs[:, k][indices].unsqueeze(1)
+                    x_selected = torch.index_select(x, 0, indices)
+                    x_updated = expert(x_selected, inference_params=params)
+                    k_probs_selected = torch.index_select(k_probs[:, k], 0, indices)
 
-        x = x_view.view(*x_shape)
+                    x[indices] = x_updated * k_probs_selected.unsqueeze(1)
+        x = x.view(*x_shape)
         return x, residual
 
 class MambaLayer(nn.Module):
