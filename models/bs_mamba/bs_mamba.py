@@ -97,8 +97,7 @@ class MoELayer(nn.Module):
                     index_prob_selected = k_probs[:, k][indices].unsqueeze(1)
                     index = index_mamba * index_prob_selected
 
-                    new_x_view = x_view.clone()
-                    new_x_view[indices] = index.half()
+                    new_x_view[indices] = index.half() # why the fuck does it need to be outside!!!
                     x_view = new_x_view
 
             x = x_view.view(*x_shape)
