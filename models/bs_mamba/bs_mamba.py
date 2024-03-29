@@ -94,7 +94,7 @@ class MoELayer(nn.Module):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
                     index = expert(x_view[indices], inference_params = params)
-                    x_view[indices] *= k_probs[:, k][indices].unsqueeze(1)
+                    x_view *= k_probs[:, k][indices].unsqueeze(1)
 
         x = x_view.view(*x_shape)
         return x, residual
