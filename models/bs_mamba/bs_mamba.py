@@ -162,6 +162,8 @@ class MambaModule(nn.Module):
     def forward(self, x, params = None):
         residual = None
         for attn, ff in self.layers:
+            print(attn)
+            print(ff)
             x, residual = attn(x, residual, params)
             x, residual = ff(x, residual, params)
         return self.norm(x, residual = residual) #note properly do the fking residual connections
