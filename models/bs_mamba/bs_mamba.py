@@ -88,16 +88,16 @@ class MoELayer(nn.Module):
 
         k_probs, k_indices = torch.topk(route, k=self.top_k, dim=1)
         
-        x = x.view(-1, x_shape[-1])
+        x_view = x.view(-1, x_shape[-1])
 
         for idx, expert in enumerate(self.experts):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
-                    x[indices] = expert(x[indices], inference_params = params)
-                    x[indices] *= k_probs[:, k][indices].unsqueeze(1)
+                    x_view[indices] = expert(x[indices], inference_params = params)
+                    x_view[indices] *= k_probs[:, k][indices].unsqueeze(1)
 
-        x = x.view(*x_shape)
+        x = x_view.view(*x_shape)
         return x, residual
 
 
@@ -142,10 +142,11 @@ class MambaModule(nn.Module):
         }
         # I have no clue when putting multiple classes in a list inside ModuleList causes error
         self.layers = nn.ModuleList()
-        self.layers.append(nn.ModuleList([
-            MambaLayer(d_model=d_model, eps=eps, **kwargs_attn),
-            layer(d_model=d_model, eps=eps, **kwargs_ff)
-        ]))
+        for _ in range(depth):
+            self.layers.append(nn.ModuleList([
+                MambaLayer(d_model=d_model, eps=eps, **kwargs_attn),
+                layer(d_model=d_model, eps=eps, **kwargs_ff)
+            ]))
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
