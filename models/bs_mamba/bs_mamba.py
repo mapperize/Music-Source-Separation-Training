@@ -112,14 +112,13 @@ class MambaLayer(nn.Module):
     def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
         super().__init__()
         ssm_cfg = {
-            'd_model' : d_model,
             'd_state' : d_state,        # SSM state expansion factor
             'd_conv' : d_conv,          # Local convolution width
             'expand' : expand           # Block expansion factor
         }
         self.mamba_block = Block(
                 dim=d_model, 
-                mixer_cls=partial(Mamba, **ssm_cfg), 
+                mixer_cls=partial(Mamba, d_model=d_model, **ssm_cfg), 
                 norm_cls=nn.LayerNorm, 
                 fused_add_norm=True, 
                 residual_in_fp32=False          
