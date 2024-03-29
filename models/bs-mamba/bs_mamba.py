@@ -76,8 +76,8 @@ class MoELayer(nn.Module):
         self.experts = nn.ModuleList(
 		    Mamba(d_model=d_model, **ssm_cfg) for _ in range(num_experts)
         )
-        self.mamba_block = Block(
-            dim=d_model, 
+        self.mamba_block = Block( # Add -> LN -> Mixer
+            dim=d_model,        
             mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
             norm_cls=nn.LayerNorm, 
             fused_add_norm=True, 
@@ -87,7 +87,7 @@ class MoELayer(nn.Module):
     def forward(self, x, residual = None, params = None):
         
         x_shape = x.shape
-        x, residual = self.norm(x, residual = residual, prenorm = True)
+        x, residual = self.mamba_block(x)
 
         route = self.router(x)
         route = route.view(-1, self.num_experts)
@@ -114,7 +114,7 @@ class MambaLayer(nn.Module):
         ssm_cfg = {
             'd_state' : d_state,        # SSM state expansion factor
             'd_conv' : d_conv,          # Local convolution width
-            'expand' : expand          # Block expansion factor
+            'expand' : expand           # Block expansion factor
         }
         self.mamba_block = Block(
                 dim=d_model, 
