@@ -78,16 +78,10 @@ class MoELayer(nn.Module):
         self.experts = nn.ModuleList(
 		    Mamba(d_model=d_model, **ssm_cfg) for _ in range(num_experts)
         )
-        self.mamba_block = Block( # Add -> LN -> Mixer
-            dim=d_model,        
-            mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
-            norm_cls=nn.LayerNorm, 
-            fused_add_norm=True, 
-            residual_in_fp32=False
-        )
     
     def forward(self, x, residual = None, params = None):
         x_shape = x.shape
+        print(x_shape)
         x, residual = self.norm(x, residual = residual, prenorm = True)
 
         route = self.router(x)
