@@ -4,6 +4,7 @@ import pdb
 import torch
 from torch import nn, einsum, Tensor
 import torch.nn.functional as F
+from torch.nn import ModuleList
 
 from beartype.typing import Tuple, Optional, List, Callable
 from beartype import beartype
