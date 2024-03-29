@@ -110,14 +110,14 @@ class MambaLayer(nn.Module):
         }
         self.mamba_block = Block(
                 dim=d_model, 
-                mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
+                mixer_cls=partial(Mamba, **ssm_cfg), # The block automatically puts dim inside for d_model
                 norm_cls=nn.LayerNorm, 
                 fused_add_norm=True, 
                 residual_in_fp32=False          
         )
     
     def forward(self, x, residual = None, params = None):
-        x, residual = self.mamba_block(x)
+        x, residual = self.mamba_block(x, residual=residual, inference_params=params)
         return x, residual
 
 class MambaModule(nn.Module):
@@ -144,7 +144,7 @@ class MambaModule(nn.Module):
         for _ in range(depth):
             self.layers.append(nn.ModuleList([
                 MambaLayer(d_model=d_model, eps=eps, **kwargs_attn),
-                MambaLayer(d_model=d_model, eps=eps, **kwargs_ff)
+                layer(d_model=d_model, eps=eps, **kwargs_ff)
             ]))
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
@@ -152,8 +152,8 @@ class MambaModule(nn.Module):
     def forward(self, x, params = None):
         residual = None
         for attn, ff in self.layers:
-            x, residual = attn(x, residual, params)
-            x, residual = ff(x, residual, params)
+            x, residual = attn(x, residual=residual, inference_params=params)
+            x, residual = ff(x, residual=residual, inference_params=params)
         return self.norm(x, residual = residual)
 
 
