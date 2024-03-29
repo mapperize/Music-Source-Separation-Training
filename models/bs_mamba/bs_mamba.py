@@ -147,26 +147,17 @@ class MambaModule(nn.Module):
         kwargs_attn = {
             'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
-        self.layer = MambaBlock(d_model=d_model, eps=eps, kwargs_attn=kwargs_attn, kwargs_ff=kwargs_ff)
+        self.layers = nn.Sequential(
+            MambaLayer(d_model=d_model, eps=eps, **kwargs_attn),
+            layer(d_model=d_model, eps=eps, **kwargs_ff)
+        )
         self.norm = fusedRMSNorm(d_model, eps = eps)
         self.depth = depth
 
     def forward(self, x, residual = None, params = None):
         for _ in range(self.depth):
-            x, residual = self.layer(x, residual, params)
+            x, residual = self.layers(x, residual, params)
         return self.norm(x)
-
-class MambaBlock(nn.Sequential):
-    def __init__(self, d_model, eps, kwargs_attn, kwargs_ff):
-        super().__init__()
-        self.d_model = d_model
-        self.eps = eps
-        self.kwargs_attn = kwargs_attn
-        self.kwargs_ff = kwargs_ff
-    def forward(self, x, residual, params):
-        x, residual = MambaLayer(d_model=d_model, eps=eps, **kwargs_attn)
-        x, residual = layer(d_model=d_model, eps=eps, **kwargs_ff)
-        return x, residual
 
 # bandsplit module
 
