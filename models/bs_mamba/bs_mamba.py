@@ -274,7 +274,7 @@ class BSMamba(nn.Module):
             num_stems=1,
             freqs_per_bands: Tuple[int, ...] = DEFAULT_FREQS_PER_BANDS,
 
-            depth,
+            depth=1,
             time_mamba_depth=2,
             freq_mamba_depth=2,
             d_model = 192,
