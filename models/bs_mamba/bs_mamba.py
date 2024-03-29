@@ -147,11 +147,14 @@ class MambaModule(nn.Module):
             'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
         # I have no clue when putting multiple classes in a list inside ModuleList causes error
-        self.layers = nn.ModuleList()
-        for i in range(depth):
-            attention = MambaLayer(d_model=d_model, eps=eps, **kwargs_attn)
-            feedforward = layer(d_model=d_model, eps=eps, **kwargs_ff)
-            self.layers.append(nn.ModuleList([attention, feedforward])) 
+        self.layers = nn.ModuleList([
+        nn.Sequential([
+            MambaLayer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_attn),
+            layer(d_model=d_model, layer_idx=i, eps=eps, **kwargs_ff)
+            ])
+            for i in range(depth)
+        ])
+ 
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
