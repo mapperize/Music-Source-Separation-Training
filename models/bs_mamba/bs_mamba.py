@@ -86,11 +86,11 @@ class MoELayer(nn.Module):
         route = torch.softmax(route, dim=1)
 
         k_probs, k_indices = torch.topk(route, k=self.top_k, dim=1)
-        
-        x_view = x.view(-1, x_shape[-1])
+
+        x = x.view(-1, x_shape[-1])
 
         for idx, expert in enumerate(self.experts):
-            for k in range(self.top_k):
+            for k in self.top_k:
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
                     x[indices] = expert(x[indices], inference_params = params)
@@ -98,7 +98,6 @@ class MoELayer(nn.Module):
 
         x = x.view(*x_shape)
         return x, residual
-
 
 class MambaLayer(nn.Module):
     def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
