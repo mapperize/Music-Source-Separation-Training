@@ -152,17 +152,12 @@ class MambaModule(nn.Module):
             MambaLayer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_attn),
             layer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_ff)
         )
-        self.depth = depth
+
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
     def forward(self, x, params = None):
         residual = None
-<<<<<<< HEAD
-        for _ in range(self.depth):
-            x, residual = self.layers(x, residual, params)
-=======
         x, residual = self.layers(x, residual, params)
->>>>>>> 2194901 (should work)
         return self.norm(x, residual = residual)
 
 
