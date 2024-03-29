@@ -88,7 +88,7 @@ class MoELayer(nn.Module):
     
     def forward(self, x, residual = None, params = None):
         x_shape = x.shape
-        x, residual = self.mamba_block(x)
+        x, residual = self.norm(x, residual = residual, prenorm = True)
 
         route = self.router(x)
         route = route.view(-1, self.num_experts)
@@ -162,8 +162,6 @@ class MambaModule(nn.Module):
     def forward(self, x, params = None):
         residual = None
         for attn, ff in self.layers:
-            print(attn)
-            print(ff)
             x, residual = attn(x, residual, params)
             x, residual = ff(x, residual, params)
         return self.norm(x, residual = residual) #note properly do the fking residual connections
