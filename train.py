@@ -2,6 +2,7 @@
 __author__ = 'Roman Solovyev (ZFTurbo): https://github.com/ZFTurbo/'
 __version__ = '1.0.1'
 
+import pdb
 import random
 import argparse
 import yaml
@@ -292,7 +293,7 @@ def train_model(args):
         print('Train epoch: {} Learning rate: {}'.format(epoch, optimizer.param_groups[0]['lr']))
         loss_val = 0.
         total = 0
-
+        pdb.set_trace()
         # total_loss = None
         pbar = tqdm(train_loader)
         for i, (batch, mixes) in enumerate(pbar):
