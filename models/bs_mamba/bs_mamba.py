@@ -134,7 +134,7 @@ class MambaModule(nn.Module):
 
             use_moe = False, num_experts = None, top_k = None   # moe params
         ):
-        super()        pdb.set_trace().__init__()
+        super().__init__()
 
         layer = MoELayer if use_moe else MambaLayer
         kwargs_ff = {
