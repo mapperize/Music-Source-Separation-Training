@@ -98,7 +98,7 @@ class MoELayer(nn.Module):
                     index = index_mamba * index_prob_selected
 
                     new_x_view = x_view.clone()
-                    new_x_view[indices] = index
+                    new_x_view[indices] = index.half()
                     x_view = new_x_view
 
             x = x_view.view(*x_shape)
