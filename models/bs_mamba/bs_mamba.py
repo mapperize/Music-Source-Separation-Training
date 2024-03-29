@@ -71,7 +71,7 @@ class MoELayer(nn.Module):
 
         self.experts = nn.ModuleList(
             [
-                Mamba(d_model=d_models, d_state=d_state, d_conv=d_conv, expand=expand, eps=eps)
+                Mamba(d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand, eps=eps)
                 for i in range(num_experts)
             ]   
         )
