@@ -47,7 +47,7 @@ class RMSNorm(nn.Module):
     def forward(self, x):
         return F.normalize(x, dim=-1) * self.scale * self.gamma
 
-class MoELayer(Module):
+class MoELayer(nn.Module):
     """
     Theory:
     https://arxiv.org/abs/2402.01771
