@@ -293,7 +293,6 @@ def train_model(args):
         print('Train epoch: {} Learning rate: {}'.format(epoch, optimizer.param_groups[0]['lr']))
         loss_val = 0.
         total = 0
-        pdb.set_trace()
         # total_loss = None
         pbar = tqdm(train_loader)
         for i, (batch, mixes) in enumerate(pbar):
