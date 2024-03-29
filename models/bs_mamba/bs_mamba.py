@@ -56,7 +56,6 @@ class MoELayer(nn.Module):
 
     Mamba as the expert
     TODO: Block should be replaced with custom kernel for parallel computation
-    TODO: https://github.com/microsoft/tutel
     """
     def __init__(
             self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5,
@@ -66,17 +65,17 @@ class MoELayer(nn.Module):
 
         self.top_k = top_k
         self.num_experts = num_experts
-        self.router = nn.Linear(d_model, num_experts)
+        self.router = Linear(d_model, num_experts)
         self.norm = fusedRMSNorm(d_model, eps=eps)
 
-        self.experts = nn.ModuleList(
+        self.experts = ModuleList(
             [
-                Mamba(d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand)
+                Mamba(d_model, d_state, d_conv, expand, eps)
                 for i in range(num_experts)
             ]   
         )
     
-    def forward(self, x, residual = None, inference_params = None):
+    def forward(self, x, residual = None, params = None):
         
         x_shape = x.shape
         x, residual = self.norm(x, residual = residual, prenorm = True)
@@ -86,18 +85,18 @@ class MoELayer(nn.Module):
         route = torch.softmax(route, dim=1)
 
         k_probs, k_indices = torch.topk(route, k=self.top_k, dim=1)
-
+        
         x = x.view(-1, x_shape[-1])
 
         for idx, expert in enumerate(self.experts):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
-                    x_view = x.clone()
-                    x_view[indices] = expert(x_view[indices], inference_params = params)
-                    x_view[indices] *= k_probs[:, k][indices].unsqueeze(1)
+                    xprt = expert(x[indices], inference_params = params)
+                    xprt *= k_probs[:, k][indices].unsqueeze(1)
+                    x[indices] = xprt
 
-        x = x_view.view(*x_shape)
+        x = x.view(*x_shape)
         return x, residual
 
 class MambaLayer(nn.Module):
