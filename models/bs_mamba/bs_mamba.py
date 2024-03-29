@@ -4,7 +4,6 @@ import pdb
 import torch
 from torch import nn, einsum, Tensor
 import torch.nn.functional as F
-from torch.nn import ModuleList
 
 from beartype.typing import Tuple, Optional, List, Callable
 from beartype import beartype
@@ -78,10 +77,17 @@ class MoELayer(nn.Module):
         self.experts = nn.ModuleList(
 		    Mamba(d_model=d_model, **ssm_cfg) for _ in range(num_experts)
         )
+        self.mamba_block = Block( # Add -> LN -> Mixer
+            dim=d_model,        
+            mixer_cls=partial(Mamba, layer_idx=layer_idx, **ssm_cfg), 
+            norm_cls=nn.LayerNorm, 
+            fused_add_norm=True, 
+            residual_in_fp32=False
+        )
     
     def forward(self, x, residual = None, params = None):
         x_shape = x.shape
-        x, residual = self.norm(x, residual = residual, prenorm = True)
+        x, residual = self.mamba_block(x)
 
         route = self.router(x)
         route = route.view(-1, self.num_experts)
@@ -89,16 +95,16 @@ class MoELayer(nn.Module):
 
         k_probs, k_indices = torch.topk(route, k=self.top_k, dim=1)
         
-        x1 = x.view(-1, x_shape[-1])
+        x = x.view(-1, x_shape[-1])
 
         for idx, expert in enumerate(self.experts):
             for k in range(self.top_k):
                 indices = (k_indices[:, k] == idx).nonzero()
                 if indices.numel() > 0:
-                    x1[indices] = expert(x[indices], inference_params = params)
-                    x1[indices] *= k_probs[:, k][indices].unsqueeze(1)
+                    x[indices] = expert(x[indices], inference_params = params)
+                    x[indices] *= k_probs[:, k][indices].unsqueeze(1)
 
-        x = x1.view(*x_shape)
+        x = x.view(*x_shape)
         return x, residual
 
 
@@ -142,22 +148,18 @@ class MambaModule(nn.Module):
             'd_state': attn_state, 'd_Conv': attn_conv, 'expand': attn_expand
         }
         # I have no clue when putting multiple classes in a list inside ModuleList causes error
-        self.layers = ModuleList([])
-
-        for _ in range(depth):
-            self.layers.append(ModuleList([
-                MambaLayer(d_model=d_model, **kwargs_attn),
-                layer(d_model=d_model, **kwargs_ff)
-            ]))
+        self.layers = nn.Sequential(
+            MambaLayer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_attn),
+            layer(d_model=d_model, layer_idx=layer_idx, eps=eps, **kwargs_ff)
+        )
 
         self.norm = fusedRMSNorm(d_model, eps = eps)
 
     def forward(self, x, params = None):
         residual = None
-        for attn, ff in self.layers:
-            x, residual = attn(x, residual, params)
-            x, residual = ff(x, residual, params)
-        return self.norm(x, residual = residual) #note properly do the fking residual connections
+        for layer in self.layers:
+            x, residual = layer(x, residual, params)
+        return self.norm(x, residual = residual)
 
 
 # bandsplit module
