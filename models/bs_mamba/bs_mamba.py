@@ -96,7 +96,7 @@ class MoELayer(nn.Module):
                     index_mamba = expert(x_view[indices], inference_params = params)
                     index_prob_selected = k_probs[:, k][indices].unsqueeze(1)
                     index = index_mamba * index_prob_selected
-                    x_view =+ index
+                    x_view = index
 
         x = x_view.view(*x_shape)
         return x, residual
