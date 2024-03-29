@@ -157,8 +157,12 @@ class MambaModule(nn.Module):
 
     def forward(self, x, params = None):
         residual = None
+<<<<<<< HEAD
         for _ in range(self.depth):
             x, residual = self.layers(x, residual, params)
+=======
+        x, residual = self.layers(x, residual, params)
+>>>>>>> 2194901 (should work)
         return self.norm(x, residual = residual)
 
 
