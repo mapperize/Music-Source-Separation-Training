@@ -75,9 +75,9 @@ def proc_list_of_files(
                              subtype='FLOAT')
                 references = np.expand_dims(track, axis=0)
                 estimates = np.expand_dims(res[instr].T, axis=0)
-                if config.audio == 'sdr':
+                if config.audio.logwmse == False:
                     sdr_val = sdr(references, estimates)[0]
-                elif config.audio == 'logwmse':
+                else:
                     calculate_log_wmse(res[instr].T, estimates, references, sr1)
                 if verbose:
                     print(instr, res[instr].shape, sdr_val)
