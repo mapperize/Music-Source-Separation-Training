@@ -8,7 +8,7 @@ import torch.nn as nn
 import yaml
 from ml_collections import ConfigDict
 from omegaconf import OmegaConf
-
+from log_wmse_audio_quality import calculate_log_wmse
 
 def get_model_from_config(model_type, config_path):
     with open(config_path) as f:
@@ -172,3 +172,7 @@ def sdr(references, estimates):
     num += delta
     den += delta
     return 10 * np.log10(num / den)
+
+def logwmse(references, estimates, input_sound, sample_rate):
+
+    return calculate_log_wmse(input_sound, est_sound, references, sample_rate)

@@ -13,6 +13,7 @@ import soundfile as sf
 import numpy as np
 import torch.nn as nn
 import multiprocessing
+from log_wmse_audio_quality import calculate_log_wmse
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -74,7 +75,10 @@ def proc_list_of_files(
                              subtype='FLOAT')
                 references = np.expand_dims(track, axis=0)
                 estimates = np.expand_dims(res[instr].T, axis=0)
-                sdr_val = sdr(references, estimates)[0]
+                if config.audio == 'sdr':
+                    sdr_val = sdr(references, estimates)[0]
+                elif config.audio == 'logwmse':
+                    calculate_log_wmse(res[instr].T, estimates, references, sr1)
                 if verbose:
                     print(instr, res[instr].shape, sdr_val)
                 all_sdr[instr].append(sdr_val)
