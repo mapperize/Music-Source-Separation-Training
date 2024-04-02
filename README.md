@@ -1,16 +1,18 @@
 # Experimental code for source separation
 
 ## To-Do (no particular order)
-* Mamba Ret/Long Net with bandsplit (https://arxiv.org/pdf/2307.08621.pdf)
+* Mamba retentive with bandsplit (https://arxiv.org/pdf/2307.08621.pdf)
 * LogWMSE loss or verification
 (numpy: https://github.com/nomonosound/log-wmse-audio-quality
 pytorch: https://github.com/crlandsc/torch-log-wmse-audio-quality)
-* SCNet fix
 * Dataset function addition to automatically mix effects with other track
-* GAN utilizing encodec/apcodec stuff to properly repair/generate broken frequencies
 * More loss functions involving phase, magnitude, etc
+* Distillation
+* Add warmup and decay learning rate adjustments during training based off of fixed step number
+more nuanced/unsure stuff:
+* SCNet fix
 * MaxVIT inside of htdemucs
-* SFX self distillation for focused categories
+* GAN utilizing encodec/apcodec stuff to properly repair/generate broken frequencies
 
 
 Repository for training models for music source separation. Repository is based on [kuielab code](https://github.com/kuielab/sdx23/tree/mdx_AB/my_submission/src) for [SDX23 challenge](https://github.com/kuielab/sdx23/tree/mdx_AB/my_submission/src). The main idea of this repository is to create training code, which is easy to modify for experiments. Brought to you by [MVSep.com](https://mvsep.com).
