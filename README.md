@@ -9,11 +9,15 @@ pytorch: https://github.com/crlandsc/torch-log-wmse-audio-quality)
 * More loss functions involving phase, magnitude, etc
 * Distillation
 * Add warmup and decay learning rate adjustments during training based off of fixed step number
-more nuanced/unsure stuff:
+
+## more nuanced/unsure stuff:
 * SCNet fix
 * MaxVIT inside of htdemucs
 * GAN utilizing encodec/apcodec stuff to properly repair/generate broken frequencies
 
+
+<br></br>
+# regular readme
 
 Repository for training models for music source separation. Repository is based on [kuielab code](https://github.com/kuielab/sdx23/tree/mdx_AB/my_submission/src) for [SDX23 challenge](https://github.com/kuielab/sdx23/tree/mdx_AB/my_submission/src). The main idea of this repository is to create training code, which is easy to modify for experiments. Brought to you by [MVSep.com](https://mvsep.com).
 
