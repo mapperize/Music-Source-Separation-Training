@@ -18,7 +18,7 @@ import torch.nn as nn
 from torch.optim import Adam, AdamW, SGD
 from torch.utils.data import DataLoader
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, LinearLR, CosineAnnealingLR
 import torch.nn.functional as F
 
 from dataset import MSSDataset
@@ -411,7 +411,11 @@ def train_model(args):
         batch_size * gradient_accumulation_steps,
     ))
     # Reduce LR if no SDR improvements for several epochs
-    scheduler = ReduceLROnPlateau(optimizer, 'max', patience=config.training.patience, factor=config.training.reduce_factor)
+    start_factor = config.training.lr / config.training.warmupepochs
+    scheduler = None
+    scheduler_plateau = ReduceLROnPlateau(optimizer, 'max', patience=config.training.patience, factor=config.training.reduce_factor)
+    scheduler_warmup = LinearLR(optimizer=optimizer, start_factor=start_factor, end_factor=config.training.lr, total_iters=config.training.warmupepochs)
+    scheduler_decay = CosineAnnealingLR(optimizer=optimizer, T_max=config.training.num_epochs, eta_min=config.training.lr_decay)
 
     if args.use_multistft_loss:
         try:
@@ -431,7 +435,14 @@ def train_model(args):
         print('Train epoch: {} Learning rate: {}'.format(epoch, optimizer.param_groups[0]['lr']))
         loss_val = 0.
         total = 0
-
+        if epoch == 0 and config.training.use_warmup:
+            print('Start warmup steps')
+            scheduler = scheduler_warmup
+        elif epoch == config.training.warmup_epochs and config.training.use_cosine_annealing:
+            print('Warmup done. Change LR scheduler')
+            scheduler = scheduler_decay
+        if scheduler != None:
+            scheduler.step(last_epoch=(epoch-1))
         # total_loss = None
         pbar = tqdm(train_loader)
         for i, (batch, mixes) in enumerate(pbar):
@@ -452,6 +463,7 @@ def train_model(args):
                         y1 = torch.reshape(y, (y.shape[0], y.shape[1] * y.shape[2], y.shape[3]))
                         loss = loss_multistft(y1_, y1)
                         # We can use many losses at the same time
+                        # TODO: add more losses
                         if args.use_mse_loss:
                             loss += 1000 * nn.MSELoss()(y1_, y1)
                         if args.use_l1_loss:
@@ -467,7 +479,7 @@ def train_model(args):
                             q=config.training.q,
                             coarse=config.training.coarse_loss_clip
                         )
-
+    
             loss /= gradient_accumulation_steps
             scaler.scale(loss).backward()
             if config.training.grad_clip:
@@ -508,7 +520,8 @@ def train_model(args):
                 store_path
             )
             best_sdr = sdr_avg
-        scheduler.step(sdr_avg)
+        if config.training.use_plateau_decay:
+            scheduler_plateau.step(sdr_avg)
 
 
 if __name__ == "__main__":
