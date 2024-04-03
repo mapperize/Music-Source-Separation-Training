@@ -100,7 +100,7 @@ class MoELayer(nn.Module):
         return x, residual
 
 class MambaLayer(nn.Module):
-    def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5, layer_idx=None, **kwargs):
+    def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2):
         super().__init__()
         ssm_cfg = {
             'd_state' : d_state,        # SSM state expansion factor
@@ -121,7 +121,7 @@ class MambaLayer(nn.Module):
 
 class MambaModule(nn.Module):
     def __init__(
-            self, d_model, depth = 1, eps = 1e-5, layer_idx=None,
+            self, d_model, depth = 1, eps = 1e-5,
 
             attn_state = 16, attn_conv = 4, attn_expand = 2,    # attn-sized mamba
             ff_state = 16, ff_conv = 4, ff_expand = 2,          # ff-sized mamba
@@ -187,13 +187,21 @@ class BandSplit(nn.Module):
 
         return torch.stack(outs, dim=-2)
 
-
-def MLP(
+"""
+        ssm_cfg = {
+            'd_state' : d_state,        # SSM state expansion factor
+            'd_conv' : d_conv,          # Local convolution width
+            'expand' : expand           # Block expansion factor
+        }
+"""
+def MambaEstimation(
         dim_in,
         dim_out,
         dim_hidden=None,
         depth=1,
-        activation=nn.Tanh
+        mlp_expansion_factor = 4,
+        d_conv= 4,
+        expand= 2,
 ):
     dim_hidden = default(dim_hidden, dim_in)
 
@@ -203,12 +211,10 @@ def MLP(
     for ind, (layer_dim_in, layer_dim_out) in enumerate(zip(dims[:-1], dims[1:])):
         is_last = ind == (len(dims) - 2)
 
-        net.append(nn.Linear(layer_dim_in, layer_dim_out))
+        net.append(Mamba(d_model=layer_dim_in, d_state = mlp_expansion_factor, d_conv = d_conv, expand = expand))
 
         if is_last:
             continue
-
-        net.append(activation())
 
     return nn.Sequential(*net)
 
@@ -220,19 +226,18 @@ class MaskEstimator(nn.Module):
             dim,
             dim_inputs: Tuple[int, ...],
             depth,
-            mlp_expansion_factor=4
+            mlp_expansion_factor=4,
+            d_conv= 4,
+            expand= 2
     ):
         super().__init__()
         self.dim_inputs = dim_inputs
         self.to_freqs = nn.ModuleList([])
-        dim_hidden = dim * mlp_expansion_factor
 
         for dim_in in dim_inputs:
-            net = []
-
+            # it isn't an mlp, it's using mamba, im too lazy to change names rn
             mlp = nn.Sequential(
-                MLP(dim, dim_in * 2, dim_hidden=dim_hidden, depth=depth),
-                nn.GLU(dim=-1)
+                MambaEstimation(dim, dim_in * 2, expansion_factor=mlp_expansion_factor, depth=depth, d_conv=d_conv, expand=expand),
             )
 
             self.to_freqs.append(mlp)
@@ -369,7 +374,9 @@ class BSMamba(nn.Module):
             mask_estimator = MaskEstimator(
                 dim=d_model,
                 dim_inputs=freqs_per_bands_with_complex,
-                depth=mask_estimator_depth
+                depth=mask_estimator_depth,
+                d_conv=ff_conv,
+                expand=ff_expand
             )
 
             self.mask_estimators.append(mask_estimator)
