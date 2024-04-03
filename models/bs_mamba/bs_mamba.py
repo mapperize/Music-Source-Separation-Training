@@ -47,58 +47,6 @@ class RMSNorm(nn.Module):
     def forward(self, x):
         return F.normalize(x, dim=-1) * self.scale * self.gamma
 
-class MoELayer(nn.Module):
-    """
-    Theory:
-    https://arxiv.org/abs/2402.01771
-    https://arxiv.org/abs/2401.04081
-    https://arxiv.org/pdf/2210.05144
-
-    Mamba as the expert
-    TODO: Block should be replaced with custom kernel for parallel computation
-    """
-    def __init__(
-            self, d_model, d_state = 16, d_conv = 4, expand = 2, eps = 1e-5,
-            num_experts = 4, top_k = 2
-        ):
-        super().__init__()
-
-        self.top_k = top_k
-        self.num_experts = num_experts
-        self.router = nn.Linear(d_model, num_experts)
-        self.norm = fusedRMSNorm(d_model, eps=eps)
-
-        self.experts = nn.ModuleList(
-            [
-                Mamba(d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand)
-                for i in range(num_experts)
-            ]   
-        )
-    
-    def forward(self, x, residual = None, inference_params = None):
-        
-        x_shape = x.shape
-        x, residual = self.norm(x, residual = residual, prenorm = True)
-
-        route = self.router(x)
-        route = route.view(-1, self.num_experts)
-        route = torch.softmax(route, dim=1)
-
-        k_probs, k_indices = torch.topk(route, k=self.top_k, dim=1)
-        
-        x = x.view(-1, x_shape[-1])
-
-        for idx, expert in enumerate(self.experts):
-            for k in range(self.top_k):
-                indices = (k_indices[:, k] == idx).nonzero()
-                if indices.numel() > 0:
-                    xprt = expert(x[indices], inference_params=inference_params)
-                    xprt *= k_probs[:, k][indices].unsqueeze(1)
-                    x[indices] = xprt
-
-        x = x.view(*x_shape)
-        return x, residual
-
 class MambaLayer(nn.Module):
     def __init__(self, d_model, d_state = 16, d_conv = 4, expand = 2):
         super().__init__()
@@ -130,7 +78,6 @@ class MambaModule(nn.Module):
         ):
         super().__init__()
 
-        layer = MoELayer if use_moe else MambaLayer
         kwargs_ff = {
             'd_state': ff_state, 'd_conv': ff_conv, 'expand': ff_expand,
             'num_experts': num_experts, 'top_k': top_k
@@ -187,13 +134,6 @@ class BandSplit(nn.Module):
 
         return torch.stack(outs, dim=-2)
 
-"""
-        ssm_cfg = {
-            'd_state' : d_state,        # SSM state expansion factor
-            'd_conv' : d_conv,          # Local convolution width
-            'expand' : expand           # Block expansion factor
-        }
-"""
 def MambaEstimation(
         dim_in,
         dim_out,
@@ -235,7 +175,6 @@ class MaskEstimator(nn.Module):
         self.to_freqs = nn.ModuleList([])
 
         for dim_in in dim_inputs:
-            # it isn't an mlp, it's using mamba, im too lazy to change names rn
             mlp = nn.Sequential(
                 MambaEstimation(dim, dim_in * 2, expansion_factor=mlp_expansion_factor, depth=depth, d_conv=d_conv, expand=expand),
             )
