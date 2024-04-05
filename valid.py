@@ -13,7 +13,6 @@ import soundfile as sf
 import numpy as np
 import torch.nn as nn
 import multiprocessing
-from log_wmse_audio_quality import calculate_log_wmse
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -75,6 +74,7 @@ def proc_list_of_files(
                              subtype='FLOAT')
                     
                 if config.training.logwmse:
+                    from log_wmse_audio_quality import calculate_log_wmse
                     input = np.transpose(mix)
                     estimates = np.transpose(res[instr].T)
                     target =  np.transpose(track)
