@@ -75,9 +75,9 @@ def proc_list_of_files(
                              subtype='FLOAT')
                     
                 if config.training.logwmse:
-                    input = np.transpose(track)
+                    input = np.transpose(mix)
                     estimates = np.transpose(res[instr].T)
-                    target =  np.zeros((estimates.shape[0],estimates.shape[1]), dtype=np.float32)
+                    target =  np.transpose(track)
                     sdr_val = calculate_log_wmse(input, estimates, target, sr1)
                 else:
                     references = np.expand_dims(track, axis=0)
