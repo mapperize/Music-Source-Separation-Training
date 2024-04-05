@@ -73,12 +73,17 @@ def proc_list_of_files(
                 if args.store_dir != "":
                     sf.write("{}/{}_{}.wav".format(args.store_dir, os.path.basename(folder), instr), res[instr].T, sr,
                              subtype='FLOAT')
-                references = np.expand_dims(track, axis=0)
-                estimates = np.expand_dims(res[instr].T, axis=0)
+                    
                 if config.training.logwmse:
-                    sdr_val = calculate_log_wmse(np.transpose(track), np.transpose(estimates), np.transpose(references), sr1)
+                    input = np.transpose(track)
+                    estimates = np.transpose(res[instr].T)
+                    target =  np.zeros((estimates.shape[0],estimates.shape[1]), dtype=np.float32)
+                    sdr_val = calculate_log_wmse(input, estimates, target, sr1)
                 else:
+                    references = np.expand_dims(track, axis=0)
+                    estimates = np.expand_dims(res[instr].T, axis=0)
                     sdr_val = sdr(references, estimates)[0]
+                    
                 if verbose:
                     print(instr, res[instr].shape, sdr_val)
                 all_sdr[instr].append(sdr_val)
