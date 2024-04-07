@@ -78,7 +78,6 @@ class MambaModule(nn.Module):
         ):
         super().__init__()
 
-        layer = MoELayer if use_moe else MambaLayer
         kwargs_ff = {
             'd_state': ff_state, 'd_conv': ff_conv, 'expand': ff_expand,
             'num_experts': num_experts, 'top_k': top_k
