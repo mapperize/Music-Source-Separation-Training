@@ -112,7 +112,7 @@ training:
   instruments:
     - vocals
     - other
-  lr: 2.0e-03
+  lr: 1.0e-04
   patience: 2
   reduce_factor: 0.95
   target_instrument: vocals
@@ -124,12 +124,13 @@ training:
   optimizer: adamw
   other_fix: false # it's needed for checking on multisong dataset if other is actually instrumental
   use_amp: true # enable or disable usage of mixed precision (float16) - usually it must be true
-  use_plateau_decay: false 
-  use_warmup: true 
-  use_cosine_annealing: true 
+  use_plateau_decay: false # Use plateau decay for learning rate adjustment if SDR is not improving
+  use_warmup: true # Use warmup for learning rate adjustment
+  use_cosine_annealing: true # Use cosine annealing for learning rate adjustment
   # These do not apply if warmup or cosine are not used
-  warmup_epochs: 20 
-  lr_decay: 0.1 
+  warmup_epochs: 20 # Set to 0 for constant stable learning rate
+  lr_decay: 0.1
+  
 
 augmentations:
   enable: true # enable or disable all augmentations (to fast disable if needed)
